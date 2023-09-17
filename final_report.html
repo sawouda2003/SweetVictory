@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.353">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Group 8">
+<meta name="dcterms.date" content="2023-05-02">
+
+<title>Sweet Victory: Predicting A Halloween Candy’s Popularity based on its Attributes</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="final_report_files/libs/clipboard/clipboard.min.js"></script>
+<script src="final_report_files/libs/quarto-html/quarto.js"></script>
+<script src="final_report_files/libs/quarto-html/popper.min.js"></script>
+<script src="final_report_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="final_report_files/libs/quarto-html/anchor.min.js"></script>
+<link href="final_report_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="final_report_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="final_report_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="final_report_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="final_report_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Sweet Victory: Predicting A Halloween Candy’s Popularity based on its Attributes</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Group 8 </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 2, 2023</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="introduction-and-data" class="level2">
+<h2 class="anchored" data-anchor-id="introduction-and-data">Introduction and Data</h2>
+<p>Halloween is objectively the best time of the year. This glorious season is marked by spooky decor, scary movies on television and in theaters, crisp fall weather, and of course, candy. Whether gobbled up in earnest by children or secretly by adults, Halloween candy is a massive benefit to spooky season, but which Halloween candy is the greatest of them all?</p>
+<p>While everyone has their own tastes, in October of 2017, FiveThirtyEight writer Walt Hickey tasked himself with answering this question objectively. Through an online knockout bracket between various popular Halloween candies, Hickey surveyed over 8000 IP addresses on 269,000 matchups. We cannot assume that this translated to 8000 people, as it’s impossible to tell if more than one person shares an IP address) with over 269,000 choices - an average of about 33 per address. Sadly, the raw data sourced from the survey itself could not be sourced. Instead, we are provided with the results of Hickey’s preliminary analysis, sorted by candy brand.</p>
+<p>The details of the knockout bracket are as follows: One user (marked by their computer’s IP address) is presented with two randomly selected fun-sized candy options and asked “Which would you prefer as a trick-or-treater?” The participant can either choose one of the two candies or choose to skip the question altogether, with no limit on the amount of responses one IP address can give. However, it is unlikely that any single participant significantly skewed the results, as it would take 3655 responses to give one’s opinion about <em>every</em> candy combination. Quoth Hickey: <em>“We don’t really need to care about the, say, hardcore Hershey fans attempting to rig the sample, because in order for someone to seriously dent their candy’s outcome, they’d have to go through scores of irrelevant matchups.”</em></p>
+<p>His results were outlined in a 2017 FiveThirtyEight article titled ‘The Ultimate Candy Power Ranking’, and posted to Github on Halloween of that same year. The data, organized by specific candy, details that candy’s attributes (set as a series of 13 binary categorical variables), its price relative to its opponents, its sugar percentage, and its performance in the bracket. More specific information is given in the following codebook:</p>
+<div class="cell">
+<div class="cell-output-display">
+<table class="table table-sm table-striped small">
+<caption>Codebook </caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Variable</th>
+<th style="text-align: left;">Explanation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">competitorname</td>
+<td style="text-align: left;">The name of the candy</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">chocolate</td>
+<td style="text-align: left;">Does it contain chocolate?</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">fruity</td>
+<td style="text-align: left;">Is it fruit flavored?</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">caramel</td>
+<td style="text-align: left;">Does it contain caramel?</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">peanutyalmondy</td>
+<td style="text-align: left;">Does it contain nuts, or a nutty flavor?</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">nougat</td>
+<td style="text-align: left;">Does it contain nougat?</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">crispedricewafer</td>
+<td style="text-align: left;">Does it contain a ‘crunch’ factor, like crisped rice or a wafer?</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">hard</td>
+<td style="text-align: left;">Is it a hard candy?</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">bar</td>
+<td style="text-align: left;">Is it a candy bar?</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pluribus</td>
+<td style="text-align: left;">Does it come in multiple pieces, like Skittles or M&amp;Ms?</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">sugarpercent</td>
+<td style="text-align: left;">The percentile of sugar as it falls under within the data set.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pricepercent</td>
+<td style="text-align: left;">The unit price percentile compared to the rest of the set.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">winpercent</td>
+<td style="text-align: left;">The overall win percentage according to 269,000 matchups.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">sour</td>
+<td style="text-align: left;">Is it sour?</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">shaped</td>
+<td style="text-align: left;">Is it an interesting shape, such as a bear or a worm?</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">complex</td>
+<td style="text-align: left;">Does it have a complex flavor profile?</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">colorful</td>
+<td style="text-align: left;">Is it brightly colored or multicolored?</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Of course, our initial question is answered easily by simply looking at the data. Reese’s has appeared to corner the candy market, occupying 4 out of the top 10 candies, with their original Peanut Butter Cup securing the top spot. But what is it <em>about</em> those cups that make them so popular?</p>
+<p>In our research, we aim to answer the question: What attributes are most directly correlated with a candy’s popularity (measured by win percentage), and how can we use them to create the most marketable candy possible? Based on a candy’s attributes, can we predict how popular a candy might be?</p>
+<p>Hickey’s original research concludes that the presence of chocolate is the greatest predictor of a candy’s success, but the answer might not be that simple. After all, Hershey’s Milk Chocolate only placed 28th, below non-chocolates like Sour Patch Kids, Starburst, and Haribo Gold Bears. We posit that the greatest predictor of a candy’s success is not the presence of one <em>specific</em> flavor, but rather a collection of <em>complex</em> flavors, colors, and/or shapes. The cardinal sin of Halloween is to be boring, and we believe that our research will corroborate that.</p>
+<p>Hickey’s research does not take these attributes into account, so some data wrangling was necessary in order to validate our hypothesis.</p>
+<p>First, we removed the ‘One quarter’ and ‘One dime’ entries, as they aren’t candy and Hickey admits in the article that he included them as a joke. (Though interestingly they performed decently well in the bracket - a dime won 32% of its matchups and a quarter won 46% of the time.) Then we added four new columns relating to four specific features that we think will be correlated to a candy’s popularity - if a candy is sour, if it has an interesting shape, if it has a complex flavor profile, and if it’s a bright color. Bright colors and sour flavors were added because the data set itself seems to be biased towards chocolate candies - chocolate bars were given 6 layers of analysis, while fruit candies were only given the attribute ‘fruity’! A candy was labelled ‘complex’ if it contained two or more different flavor attributes.</p>
+<p>We plan on using all of these attributes when building our prediction model. These binary variables on their own do not provide too much information, but the unique combinations of them for each candy may help us uncover what unique flavor profile and physical attributes are most appealing to the public.</p>
+</section>
+<section id="methodology" class="level2">
+<h2 class="anchored" data-anchor-id="methodology">Methodology</h2>
+<p>Our outcome variable is the candy’s popularity, shown in the data set as <code>winpercent</code> - how often it was selected as a preferred option as opposed to its randomly selected competitor. It is a numerical variable, and is a representation of the probability that a candy is preferable to the others, and thus its ‘popularity’. Because we are looking to understand how a candy’s attributes might affect its popularity, our key exploratory variables include the candy’s individual attributes - that is, all of the categorical columns of the dataset. Based on analysis of the correlation between attributes and popularity, we can then make predictions of a candy’s popularity based on its attributes.</p>
+<p>Lastly, for our preliminary analysis, we will create graphs to figure out the relationship between features of a candy (chocolate content, complexity, and shape) and its win percent. We hypothesize that win percent has a positive correlation with chocolate content, complexity, interesting shapes, and colorfulness.</p>
+<p>In order to present relevant summary statistics for the data, as well as run preliminary analysis of how different characteristics of a candy affects its win percent, we are using means and bar graphs to plot the relationship between a candy’s characteristics and its win percent. Firstly, the overall average win percent is calculated to provide a threshold to determine whether a candy scores better than the average win percent. The bar graph, then, shows the proportion of the candy’s win percent, according to the threshold, based on if it has the characteristic (1) or if it doesn’t (0). The mean win percent for each candy’s categories and whether or not they have the characteristics is also calculated.</p>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="final_report_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Hickey was on to something in his research - candies that contained chocolate had a win percent average of 60.92%, while candies that did not won on average 42.27% of the time.</p>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="final_report_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>It appears that our initial hypothesis has some merit, as candies with a complex flavor profile had an average win percent of 59.69% - compared to simple candy’s 43.61% average win percentage, that’s a big leap!</p>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="final_report_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Curiously, there seems to be a negative association between a candy’s interesting visual attributes and its popularity. Candies in simple shapes have an average win percentage of 52.39%, while their funky-shaped competitors win 44.51% of the time.</p>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="final_report_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>To corroborate the earlier point, colorful candies win their match-ups 46.18% of the time, and non-colorful candies win on average 55.8% of the time.</p>
+<p>Perhaps candy manufacturers give visual appeal to candies that aren’t themselves very tasty?</p>
+<p>From these graphs and the calculated means, we see that chocolate content and complexity are positively correlated with a candy’s win percent, with candies that contain chocolate holding the highest mean win percent. An interesting shape however, seems to have a negative correlation with a candy’s win percent if only the calculated mean was looked at, however from the graph it seems as though an interesting shape only marginally receives a lesser proportion of win percent that is greater than the average.</p>
+<p>Colorful candies seem to have a higher proportion of lower than average win percent, and this is also backed up by the calculated means, which means that color negatively impacts a candy’s win percent. Upon further investigation, it is found that the sample size of interestingly shaped candies is very small and would not properly reflect in the calculated mean. Thus, both visualization and calculated means are important to corroborate the results seen from the summary statistics.</p>
+<p>To analyze the correlation between a candy’s attributes and its popularity, we will be using a variety of regression models (decision tree, random forest, and GBM) to analyze the data. We will select the best model and use it to make our final predictions. The reason we are fitting multiple models is because of our small data set. These models are all compatible with regression, and vary in complexity and accuracy, with interpretability often being the trade-off. Because almost all of our predictors are binary, we want to use more complex models that may be able to interpret these rather uninformative variables in a way that will lead to higher accuracy. We don’t believe a linear regression model could perform this well. By using multiple models we hope to get the best performing machine possible. We hypothesize that win percent has a positive correlation with chocolate content, complexity, and interesting shapes.</p>
+</section>
+<section id="results" class="level2">
+<h2 class="anchored" data-anchor-id="results">Results</h2>
+<p>We choose to use Leave-One-Out Cross-Validation (LOOCV) instead of a traditional train-test split method for evaluating machine learning models due to the small size of our data set. With a small data set, a train-test split can result in a small sample size for training the model, leading to overfitting or underfitting depending on the number of observations and features in the data. LOOCV allows us to train the model on almost the entire data set, while still allowing for independent evaluation of the model’s performance on each data point. This approach provides a more accurate estimate of the model’s performance on new, unseen data, which is especially important when dealing with a small data set. Additionally, LOOCV eliminates the potential bias introduced by a random train-test split and provides a more reliable estimate of the model’s generalization performance. Overall, LOOCV is a suitable approach for evaluating machine learning models when dealing with small data sets, as it provides a more accurate and reliable estimate of model performance.</p>
+<section id="random-forest" class="level3">
+<h3 class="anchored" data-anchor-id="random-forest">Random Forest</h3>
+<p>After performing cross-validation to find the best Random Forest Regressor model, an RF with a max depth of 10, a minimum number of samples required for each internal node for a split of 2, and the number of estimators to be 200 is the best for predicting candy popularity using the candy data set. The model achieves an MSE of 133.92 and an <span class="math inline">\(R^2\)</span> score of 0.38. The Random Forest Regressor model uses an ensemble of decision trees to make predictions, which can capture nonlinear relationships and interactions between features that may not be captured by a linear model.</p>
+</section>
+<section id="decision-tree" class="level3">
+<h3 class="anchored" data-anchor-id="decision-tree">Decision Tree</h3>
+<p>For a Decision Tree Regressor model, it performs best when the max depth is 5, the minimum of samples needed to split an internal node is 10, and the minimum number of samples to be considered a leaf is 4. The model achieves an MSE of 142.21 and an <span class="math inline">\(R^2\)</span> score of 0.34, which is lower than the performance of the Random Forest Regressor model on the same data set. The Decision Tree Regressor model is a simpler model than the Random Forest Regressor model and can be useful for interpreting the relationships between features and the target variable. However, in this case, the Random Forest Regressor model performs better.</p>
+</section>
+<section id="gradient-boosting-regressor" class="level3">
+<h3 class="anchored" data-anchor-id="gradient-boosting-regressor">Gradient Boosting Regressor</h3>
+<p>The best hyperparameters for the GBM model are to have a learning rate of 0.1, a maximum depth of 7, the square root of the number of features used to determine the best split, 1 samples minimum for each leaf, 5 samples minimum samples for a split of an internal node, and 200 estimators. The MSE is relatively high at 138.73 and the <span class="math inline">\(R^2\)</span> score is 0.35.</p>
+<p>In conclusion, the Random Forest Regressor model can best predict candy popularity using the candy data set. It accounts for about 37.68% of the variation in win percentage of a certain candy. The MSE is still relatively high, with an error of 133.92 on the entire model. This performs slightly better than the GBM, and much better than only using one decision tree.</p>
+<div class="cell">
+<div class="cell-output-display">
+<style>#sk-container-id-1 {color: black;background-color: white;}#sk-container-id-1 pre{padding: 0;}#sk-container-id-1 div.sk-toggleable {background-color: white;}#sk-container-id-1 label.sk-toggleable__label {cursor: pointer;display: block;width: 100%;margin-bottom: 0;padding: 0.3em;box-sizing: border-box;text-align: center;}#sk-container-id-1 label.sk-toggleable__label-arrow:before {content: "▸";float: left;margin-right: 0.25em;color: #696969;}#sk-container-id-1 label.sk-toggleable__label-arrow:hover:before {color: black;}#sk-container-id-1 div.sk-estimator:hover label.sk-toggleable__label-arrow:before {color: black;}#sk-container-id-1 div.sk-toggleable__content {max-height: 0;max-width: 0;overflow: hidden;text-align: left;background-color: #f0f8ff;}#sk-container-id-1 div.sk-toggleable__content pre {margin: 0.2em;color: black;border-radius: 0.25em;background-color: #f0f8ff;}#sk-container-id-1 input.sk-toggleable__control:checked~div.sk-toggleable__content {max-height: 200px;max-width: 100%;overflow: auto;}#sk-container-id-1 input.sk-toggleable__control:checked~label.sk-toggleable__label-arrow:before {content: "▾";}#sk-container-id-1 div.sk-estimator input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-label input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 input.sk-hidden--visually {border: 0;clip: rect(1px 1px 1px 1px);clip: rect(1px, 1px, 1px, 1px);height: 1px;margin: -1px;overflow: hidden;padding: 0;position: absolute;width: 1px;}#sk-container-id-1 div.sk-estimator {font-family: monospace;background-color: #f0f8ff;border: 1px dotted black;border-radius: 0.25em;box-sizing: border-box;margin-bottom: 0.5em;}#sk-container-id-1 div.sk-estimator:hover {background-color: #d4ebff;}#sk-container-id-1 div.sk-parallel-item::after {content: "";width: 100%;border-bottom: 1px solid gray;flex-grow: 1;}#sk-container-id-1 div.sk-label:hover label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-serial::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: 0;}#sk-container-id-1 div.sk-serial {display: flex;flex-direction: column;align-items: center;background-color: white;padding-right: 0.2em;padding-left: 0.2em;position: relative;}#sk-container-id-1 div.sk-item {position: relative;z-index: 1;}#sk-container-id-1 div.sk-parallel {display: flex;align-items: stretch;justify-content: center;background-color: white;position: relative;}#sk-container-id-1 div.sk-item::before, #sk-container-id-1 div.sk-parallel-item::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: -1;}#sk-container-id-1 div.sk-parallel-item {display: flex;flex-direction: column;z-index: 1;position: relative;background-color: white;}#sk-container-id-1 div.sk-parallel-item:first-child::after {align-self: flex-end;width: 50%;}#sk-container-id-1 div.sk-parallel-item:last-child::after {align-self: flex-start;width: 50%;}#sk-container-id-1 div.sk-parallel-item:only-child::after {width: 0;}#sk-container-id-1 div.sk-dashed-wrapped {border: 1px dashed gray;margin: 0 0.4em 0.5em 0.4em;box-sizing: border-box;padding-bottom: 0.4em;background-color: white;}#sk-container-id-1 div.sk-label label {font-family: monospace;font-weight: bold;display: inline-block;line-height: 1.2em;}#sk-container-id-1 div.sk-label-container {text-align: center;}#sk-container-id-1 div.sk-container {/* jupyter's `normalize.less` sets `[hidden] { display: none; }` but bootstrap.min.css set `[hidden] { display: none !important; }` so we also need the `!important` here to be able to override the default hidden behavior on the sphinx rendered scikit-learn.org. See: https://github.com/scikit-learn/scikit-learn/issues/21755 */display: inline-block !important;position: relative;}#sk-container-id-1 div.sk-text-repr-fallback {display: none;}</style><div id="sk-container-id-1" class="sk-top-container"><div class="sk-text-repr-fallback"><pre>Pipeline(steps=[('preprocessor',
+                 ColumnTransformer(remainder='passthrough',
+                                   transformers=[('standardscaler',
+                                                  StandardScaler(),
+                                                  [9, 10])])),
+                ('rf', RandomForestRegressor(max_depth=10, n_estimators=200))])</pre><b>In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook. <br>On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.</b></div><div class="sk-container" hidden=""><div class="sk-item sk-dashed-wrapped"><div class="sk-label-container"><div class="sk-label sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-1" type="checkbox"><label for="sk-estimator-id-1" class="sk-toggleable__label sk-toggleable__label-arrow">Pipeline</label><div class="sk-toggleable__content"><pre>Pipeline(steps=[('preprocessor',
+                 ColumnTransformer(remainder='passthrough',
+                                   transformers=[('standardscaler',
+                                                  StandardScaler(),
+                                                  [9, 10])])),
+                ('rf', RandomForestRegressor(max_depth=10, n_estimators=200))])</pre></div></div></div><div class="sk-serial"><div class="sk-item sk-dashed-wrapped"><div class="sk-label-container"><div class="sk-label sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-2" type="checkbox"><label for="sk-estimator-id-2" class="sk-toggleable__label sk-toggleable__label-arrow">preprocessor: ColumnTransformer</label><div class="sk-toggleable__content"><pre>ColumnTransformer(remainder='passthrough',
+                  transformers=[('standardscaler', StandardScaler(), [9, 10])])</pre></div></div></div><div class="sk-parallel"><div class="sk-parallel-item"><div class="sk-item"><div class="sk-label-container"><div class="sk-label sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-3" type="checkbox"><label for="sk-estimator-id-3" class="sk-toggleable__label sk-toggleable__label-arrow">standardscaler</label><div class="sk-toggleable__content"><pre>[9, 10]</pre></div></div></div><div class="sk-serial"><div class="sk-item"><div class="sk-estimator sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-4" type="checkbox"><label for="sk-estimator-id-4" class="sk-toggleable__label sk-toggleable__label-arrow">StandardScaler</label><div class="sk-toggleable__content"><pre>StandardScaler()</pre></div></div></div></div></div></div><div class="sk-parallel-item"><div class="sk-item"><div class="sk-label-container"><div class="sk-label sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-5" type="checkbox"><label for="sk-estimator-id-5" class="sk-toggleable__label sk-toggleable__label-arrow">remainder</label><div class="sk-toggleable__content"><pre>['chocolate', 'fruity', 'caramel', 'peanutyalmondy', 'nougat', 'crispedricewafer', 'hard', 'bar', 'pluribus', 'shaped', 'sour', 'complex', 'colorful']</pre></div></div></div><div class="sk-serial"><div class="sk-item"><div class="sk-estimator sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-6" type="checkbox"><label for="sk-estimator-id-6" class="sk-toggleable__label sk-toggleable__label-arrow">passthrough</label><div class="sk-toggleable__content"><pre>passthrough</pre></div></div></div></div></div></div></div></div><div class="sk-item"><div class="sk-estimator sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-7" type="checkbox"><label for="sk-estimator-id-7" class="sk-toggleable__label sk-toggleable__label-arrow">RandomForestRegressor</label><div class="sk-toggleable__content"><pre>RandomForestRegressor(max_depth=10, n_estimators=200)</pre></div></div></div></div></div></div></div>
+</div>
+</div>
+<p>The Random Forest Regressor model’s feature importance analysis shows that chocolate is the most important feature, with a weight of 0.376, followed by colorful and complex attributes with weights of 0.150 and 0.171, respectively. Other important features include fruity, caramel, peanutyalmondy, nougat, and sour. Pricepercent has the lowest feature importance weight, indicating that it has the least impact on candy popularity. These results suggest that a candy’s taste and appearance are more important than its price in determining its popularity.</p>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>Winning Percentage with Only One Attribute:</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>chocolate: 47.16
+sugarpercent: 40.87
+complex: 37.37
+colorful: 36.34
+bar: 34.88
+caramel: 34.70
+shaped: 34.65
+nougat: 34.53
+crispedricewafer: 33.88
+hard: 33.68
+sour: 33.64
+peanutyalmondy: 32.86
+fruity: 32.14
+pluribus: 32.12
+pricepercent: 30.22</code></pre>
+</div>
+</div>
+<p>The Random Forest Regressor model was used to predict the popularity of different attributes of candy. The predicted popularity values for each attribute were then sorted in descending order. The attribute with the highest predicted popularity is chocolate with a score of 47.16, followed by a sugar percentile of 1 (the most sugary) with an expected winning percentage of 40.87 and colorful with a predicted winning percentage of 36.34 These results suggest that chocolate and high sugar content are strong predictors of candy popularity. A price percentile of 1 (most expensive) of a candy is predicted to be the least important attribute in predicting candy popularity. These results can be useful for candy manufacturers and marketers to understand which attributes of candy are most likely to be popular among consumers.</p>
+</section>
+<section id="feature-importances" class="level3">
+<h3 class="anchored" data-anchor-id="feature-importances">Feature Importances</h3>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="final_report_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid" width="576"></p>
+</div>
+</div>
+<p>Based on the Random Forest Regressor model, the most important attribute for predicting candy popularity is <code>caramel</code>, followed by <code>chocolate</code> and <code>fruity</code>. The other attributes may also play a role in candy popularity, but to a lesser extent. The least important attribute is <code>sour</code>. It’s important to note that these results are specific to the data set and may not generalize to other populations or contexts.</p>
+</section>
+</section>
+<section id="discussion" class="level2">
+<h2 class="anchored" data-anchor-id="discussion">Discussion</h2>
+<p>After attempting to fit multiple regression prediction models, we found that it is hard for machines to predict how popular a certain candy will be based on their flavor profile, visual and tactile presentation, and price. Out of the decision tree, random forest, and GBM models, the Random Forest Regressor model performed the best, with the highest <span class="math inline">\(R^2\)</span> value of 0.38 and smallest MSE of 133.92. However, this model still only accounts for about a third of the variation in win percentage. We hypothesized that chocolate, complex flavors, and an interesting shape may all positively contribute to predicting a candy’s winning percentage. Chocolate is the second most important feature in predicting winning percentage, with a feature importance value of 0.3574; caramel has the highest feature importance of . Complexity of the candy is the fourth most important, with a feature importance of 0.1559. Shape does not seem to contribute much, with a feature importance of 0.0142. Higher values of feature importance indicates the degree to which that predictor contributes to the final model. Feature importance values range from 0 to 1, but none of them having an importance of even 0.4 reflects the limitations of our data and difficulty predicting win percentage from the data set.</p>
+<p>To test our model, we defined candies with only one of 15 attributes being marked as present. Then, we predicted the winning percentage using our optimal Random Forest Regressor model. The results reveal that chocolate as the only attribute has the highest winning percentage of 47.16. It’s hard to interpret these estimates in context (in regards to the predicted winning percentage with only that attribute present). For example, a candy cannot have an interesting shape with no other of the listed attributes (it would have no flavor). Under a similar interpretation, if a candy has a complex flavor profile but none of the individual flavors, then what does this complex flavor consist of? Our model predicts candies with a price percentile of 1 (most expensive) to have the lowest winning percentage, but this theoretical candy has no flavor or visual attributes. There is inherent interaction between these variables, which our predictions do not account for.</p>
+<p>Because our data set is relatively small, we opted for a LOOCV (leave one out cross-validation) method to find the optimal model. This is a more computationally expensive algorithm but gives us more leverage with our small amount of data. The training data, with its inherent limitation of being rather small, limits the validity of our model. While we did use the LOOCV method to maximize each observation, 83 observations is still a very small amount to fit a model to. Something else that may limit the predictions for new data we can make is that the categories added to the original data set are mostly arbitrary. Analyst Sarah Kessler hand-picked candies that fit the criteria for each category out of the data set, imparting a not insignificant amount of human error. Perhaps a few different candies could have been categorized as colorful or interesting by a different human analyst, and that could have contributed to different scores in the <code>colorful</code> and <code>shaped</code> columns.</p>
+<p>If we were able to start over with the project, we probably would try to find a new data set. There are not many observations in this data set, and while we tried sourcing the original, raw data, it proved unsuccessful. Having this raw data may have lead to a much more interesting analysis. If we were able to conduct the same survey as Hickey, we would ask about other demographic information like age, gender, location etc. Perhaps there’s a stratified difference depending on who the candy consumer is (ex. children may like colorful, interestingly shaped candy, while adults may be more about the complexity of the flavor profile). Including factors other than the candy’s attributes would also give us a richer data set with variables that aren’t binary indicators. Like Hickey, we would probably deploy it online and try to gather a large, randomized sample size. The resulting data would also give us the results of each comparison, rather than the overall percentage of matchups each candy won. So, not only could we predict the absolute win percentage, but perhaps we could predict if a given candy would fall in the top 5 or bottom 5 (a question of classification). Only having 83 observations is an inherent limitation to building a model and performing predictions.</p>
+</section>
+<section id="citation" class="level2">
+<h2 class="anchored" data-anchor-id="citation">Citation</h2>
+<p>Hickey, W. (2017, October 27). <em>The ultimate halloween candy power ranking.</em> FiveThirtyEight. Retrieved April 16, 2023, from https://fivethirtyeight.com/videos/the-ultimate-halloween-candy-power-ranking/</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
