@@ -1,0 +1,529 @@
+---
+title: "Sweet Victory: Predicting A Halloween Candy's Popularity based on its Attributes"
+author: "Group 8"
+date: "05/02/23"
+execute: 
+  warning: false
+---
+
+## Introduction and Data
+
+Halloween is objectively the best time of the year. This glorious season is marked by spooky decor, scary movies on television and in theaters, crisp fall weather, and of course, candy. Whether gobbled up in earnest by children or secretly by adults, Halloween candy is a massive benefit to spooky season, but which Halloween candy is the greatest of them all?
+
+While everyone has their own tastes, in October of 2017, FiveThirtyEight writer Walt Hickey tasked himself with answering this question objectively. Through an online knockout bracket between various popular Halloween candies, Hickey surveyed over 8000 IP addresses on 269,000 matchups. We cannot assume that this translated to 8000 people, as it's impossible to tell if more than one person shares an IP address) with over 269,000 choices - an average of about 33 per address. Sadly, the raw data sourced from the survey itself could not be sourced. Instead, we are provided with the results of Hickey's preliminary analysis, sorted by candy brand.
+
+The details of the knockout bracket are as follows: One user (marked by their computer's IP address) is presented with two randomly selected fun-sized candy options and asked "Which would you prefer as a trick-or-treater?" The participant can either choose one of the two candies or choose to skip the question altogether, with no limit on the amount of responses one IP address can give. However, it is unlikely that any single participant significantly skewed the results, as it would take 3655 responses to give one's opinion about *every* candy combination. Quoth Hickey: *"We don't really need to care about the, say, hardcore Hershey fans attempting to rig the sample, because in order for someone to seriously dent their candy's outcome, they'd have to go through scores of irrelevant matchups."*
+
+His results were outlined in a 2017 FiveThirtyEight article titled 'The Ultimate Candy Power Ranking', and posted to Github on Halloween of that same year. The data, organized by specific candy, details that candy's attributes (set as a series of 13 binary categorical variables), its price relative to its opponents, its sugar percentage, and its performance in the bracket. More specific information is given in the following codebook:
+
+```{r}
+#| echo: False
+#| message: False
+library(reticulate)
+library(tidyverse)
+library(readr)
+library(plyr)
+
+candy <- read_csv("../data/candy.csv", show_col_types = FALSE)
+```
+
+```{python}
+#| label: Codebook
+#| tbl-cap: Codebook
+#| echo: False
+from IPython.display import Markdown
+from tabulate import tabulate
+table = [["competitorname","The name of the candy"],
+         ["chocolate","Does it contain chocolate?"],
+         ["fruity","Is it fruit flavored?"],
+         ["caramel","Does it contain caramel?"],
+         ["peanutyalmondy", "Does it contain nuts, or a nutty flavor?"],
+         ["nougat", "Does it contain nougat?"],
+         ["crispedricewafer", "Does it contain a 'crunch' factor, like crisped rice or a wafer?"],
+         ["hard", "Is it a hard candy?"],
+         ["bar", "Is it a candy bar?"],
+         ["pluribus", "Does it come in multiple pieces, like Skittles or M&Ms?"],
+         ["sugarpercent", "The percentile of sugar as it falls under within the data set."],
+         ["pricepercent", "The unit price percentile compared to the rest of the set."],
+         ["winpercent", "The overall win percentage according to 269,000 matchups."],
+         ["sour", "Is it sour?"],
+         ["shaped", "Is it an interesting shape, such as a bear or a worm?"],
+         ["complex", "Does it have a complex flavor profile?"],
+         ["colorful", "Is it brightly colored or multicolored?"]]
+Markdown(tabulate(
+  table, 
+  headers=["Variable","Explanation"]
+))
+```
+
+```{r}
+#| echo: false
+#| message: false
+
+candy <- candy[-c(3,4),] #Remove dime and quarter, they're not candy
+
+#Hand-picking candies that have interesting shapes out of non-bar candies
+interesting = candy[candy$bar < 1,][c(3,7, 12, 13, 14, 15, 16, 21, 27, 32, 37, 39, 40, 46, 47, 53, 57, 58, 60),]
+noninteresting = candy %>% filter(!competitorname %in% interesting[['competitorname']])
+#assigning the 'complex' variable
+interesting$shaped <- 1
+noninteresting$shaped <- 0
+candy <- bind_rows(interesting, noninteresting)
+
+#Hand-selecting sour candies out of fruity candies.
+sours = candy[candy$fruity > 0.5,][c(3, 4, 10, 11, 13, 18, 26, 38),]
+#Creating 'sour' column
+candy <- candy %>% 
+  mutate(sour = if_else(competitorname %in% sours[['competitorname']], 1, 0))
+
+#Mapping complexity of candy
+candy$complexity <- rowSums(candy[,c('chocolate', 'fruity', 'caramel', 'peanutyalmondy', 'nougat', 'crispedricewafer', 'sour')])
+#Additing complex column
+candy <- candy %>%
+  mutate(complex = if_else(complexity > 1, 1, 0))
+#removing crutch column
+candy <- subset(candy, select = -complexity)
+
+#Hand-selecting colorful candies. 
+colorfuls <- candy[c(1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 22, 28, 29, 30, 31, 32, 33, 37, 40, 41, 42, 43, 44, 51, 54, 56, 57, 58, 61, 64, 65, 66, 67, 68, 71, 72, 76, 81),]
+#Creating 'colorful' column
+candy <- candy %>% 
+  mutate(colorful = if_else(competitorname %in% colorfuls[['competitorname']], 1, 0))
+```
+
+```{python}
+#| echo: False
+#| message: False
+import pandas as pd
+import numpy as np 
+
+
+candy = r.candy
+```
+
+Of course, our initial question is answered easily by simply looking at the data. Reese's has appeared to corner the candy market, occupying 4 out of the top 10 candies, with their original Peanut Butter Cup securing the top spot. But what is it *about* those cups that make them so popular?
+
+In our research, we aim to answer the question: What attributes are most directly correlated with a candy's popularity (measured by win percentage), and how can we use them to create the most marketable candy possible? Based on a candy's attributes, can we predict how popular a candy might be?
+
+Hickey's original research concludes that the presence of chocolate is the greatest predictor of a candy's success, but the answer might not be that simple. After all, Hershey's Milk Chocolate only placed 28th, below non-chocolates like Sour Patch Kids, Starburst, and Haribo Gold Bears. We posit that the greatest predictor of a candy's success is not the presence of one *specific* flavor, but rather a collection of *complex* flavors, colors, and/or shapes. The cardinal sin of Halloween is to be boring, and we believe that our research will corroborate that.
+
+Hickey's research does not take these attributes into account, so some data wrangling was necessary in order to validate our hypothesis.
+
+First, we removed the 'One quarter' and 'One dime' entries, as they aren't candy and Hickey admits in the article that he included them as a joke. (Though interestingly they performed decently well in the bracket - a dime won 32% of its matchups and a quarter won 46% of the time.) Then we added four new columns relating to four specific features that we think will be correlated to a candy's popularity - if a candy is sour, if it has an interesting shape, if it has a complex flavor profile, and if it's a bright color. Bright colors and sour flavors were added because the data set itself seems to be biased towards chocolate candies - chocolate bars were given 6 layers of analysis, while fruit candies were only given the attribute 'fruity'! A candy was labelled 'complex' if it contained two or more different flavor attributes. 
+
+We plan on using all of these attributes when building our prediction model. These binary variables on their own do not provide too much information, but the unique combinations of them for each candy may help us uncover what unique flavor profile and physical attributes are most appealing to the public.
+
+
+## Methodology
+
+Our outcome variable is the candy's popularity, shown in the data set as `winpercent` - how often it was selected as a preferred option as opposed to its randomly selected competitor. It is a numerical variable, and is a representation of the probability that a candy is preferable to the others, and thus its 'popularity'. Because we are looking to understand how a candy's attributes might affect its popularity, our key exploratory variables include the candy's individual attributes - that is, all of the categorical columns of the dataset. Based on analysis of the correlation between attributes and popularity, we can then make predictions of a candy's popularity based on its attributes.
+
+Lastly, for our preliminary analysis, we will create graphs to figure out the relationship between features of a candy (chocolate content, complexity, and shape) and its win percent. We hypothesize that win percent has a positive correlation with chocolate content, complexity, interesting shapes, and colorfulness.
+
+In order to present relevant summary statistics for the data, as well as run preliminary analysis of how different characteristics of a candy affects its win percent, we are using means and bar graphs to plot the relationship between a candy's characteristics and its win percent. Firstly, the overall average win percent is calculated to provide a threshold to determine whether a candy scores better than the average win percent. The bar graph, then, shows the proportion of the candy's win percent, according to the threshold, based on if it has the characteristic (1) or if it doesn't (0). The mean win percent for each candy's categories and whether or not they have the characteristics is also calculated. 
+
+```{r}
+#| echo: false
+#| message: false
+
+# setting up a graph for win percent of candies based on if they contain chocolate or not
+candy %>% 
+mutate(win_avg = if_else(winpercent > mean(winpercent), "Yes", "No")) %>% 
+ggplot(aes(x = as.factor(chocolate), fill = win_avg)) +
+  geom_bar(position = "fill") +
+  labs(title = "Win Percent of Candy based on Chocolate Content", x= "Chocolate", fill = "Win Percentage Above Average", y = "Proportion") +
+  scale_x_discrete(labels=c("No", "Yes"))
+
+
+# calculate average win percentage for candies with and without chocolate
+chocolate_mean <- candy %>% 
+  filter(chocolate == 1) %>% 
+  summarize(avg = mean(winpercent))
+
+no_chocolate_mean <- candy %>% 
+  filter(chocolate == 0) %>% 
+  summarize(avg = mean(winpercent))
+```
+
+Hickey was on to something in his research - candies that contained chocolate had a win percent average of `r round(chocolate_mean$avg, digits = 2)`%, while candies that did not won on average `r round(no_chocolate_mean$avg, digits = 2)`% of the time.
+
+```{r}
+#| echo: false
+#| message: false
+
+# setting up a graph for win percent of candies based on if they are complex or not
+candy %>% 
+mutate(win_avg = if_else(winpercent > mean(winpercent), "Yes", "No")) %>% 
+ggplot(aes(x = as.factor(complex), fill = win_avg)) +
+  geom_bar(position = "fill") +
+  labs(
+    title="Win Percent by Candy Complexity",
+    x="Complex Flavor",
+    y="Proportion",
+    fill = "Win Percentage Above Average") +
+  scale_x_discrete(labels=c("No", "Yes"))
+  
+# calculate average win percentage for candies with and without complex flavor profiles
+complex_mean <- candy %>% 
+  filter(complex == 1) %>% 
+  summarize(avg = mean(winpercent))
+
+not_complex_mean <- candy %>% 
+  filter(complex == 0) %>% 
+  summarize(avg = mean(winpercent))
+```
+
+It appears that our initial hypothesis has some merit, as candies with a complex flavor profile had an average win percent of `r round(complex_mean$avg, digits = 2)`% - compared to simple candy's `r round(not_complex_mean$avg, digits = 2)`% average win percentage, that's a big leap!
+
+```{r}
+#| echo: false
+#| message: false
+
+# setting up a graph for win percent of candies based on if they have an interesting shape or not
+candy %>% 
+  mutate(win_avg = if_else(winpercent > mean(winpercent), "Yes", "No")) %>% 
+ggplot(aes(x = shaped, fill = win_avg)) +
+  geom_bar(position = "fill")+
+  labs(
+    title="Win Percent by Candy Shape",
+    x="Interesting Shape",
+    y="Proportion",
+    fill = "Win Percentage Above Average") +
+    scale_x_discrete(labels=c("No", "Yes"))
+
+# calculate average win percentage for candies that are and aren't interesting shapes
+interesting_shape_mean <- candy %>% 
+  filter(shaped == 1) %>% 
+  summarize(avg = mean(winpercent))
+
+normal_shape_mean <- candy %>% 
+  filter(shaped == 0) %>% 
+  summarize(avg = mean(winpercent))
+```
+
+Curiously, there seems to be a negative association between a candy's interesting visual attributes and its popularity. Candies in simple shapes have an average win percentage of `r round(normal_shape_mean$avg, digits = 2)`%, while their funky-shaped competitors win `r round(interesting_shape_mean$avg, digits = 2)`% of the time.
+
+```{r}
+#| echo: false
+#| message: false
+
+# setting up a graph for win percent of candies based on if they are colorful or not
+candy %>% 
+  mutate(win_avg = if_else(winpercent > mean(winpercent), "Yes", "No")) %>% 
+ggplot(aes(x = colorful, fill = win_avg)) +
+  geom_bar(position = "fill")+
+  labs(
+    title="Win Percent by Candy Color Complexity",
+    x="Colorful",
+    y="Proportion",
+    fill = "Win Percentage Above Average") +
+    scale_x_discrete(labels=c("No", "Yes"))
+
+# calculate average win percentage for candies that are and aren't colorful
+colorful_mean <- candy %>% 
+  filter(colorful == 1) %>% 
+  summarize(avg = mean(winpercent))
+
+not_colorful_mean <- candy %>% 
+  filter(colorful == 0) %>% 
+  summarize(avg = mean(winpercent))
+```
+
+To corroborate the earlier point, colorful candies win their match-ups `r round(colorful_mean$avg, digits = 2)`% of the time, and non-colorful candies win on average `r round(not_colorful_mean$avg, digits = 2)`% of the time.
+
+Perhaps candy manufacturers give visual appeal to candies that aren't themselves very tasty?
+
+From these graphs and the calculated means, we see that chocolate content and complexity are positively correlated with a candy's win percent, with candies that contain chocolate holding the highest mean win percent. An interesting shape however, seems to have a negative correlation with a candy's win percent if only the calculated mean was looked at, however from the graph it seems as though an interesting shape only marginally receives a lesser proportion of win percent that is greater than the average.
+
+Colorful candies seem to have a higher proportion of lower than average win percent, and this is also backed up by the calculated means, which means that color negatively impacts a candy's win percent. Upon further investigation, it is found that the sample size of interestingly shaped candies is very small and would not properly reflect in the calculated mean. Thus, both visualization and calculated means are important to corroborate the results seen from the summary statistics.
+
+To analyze the correlation between a candy's attributes and its popularity, we will be using a variety of regression models (decision tree, random forest, and GBM) to analyze the data. We will select the best model and use it to make our final predictions. The reason we are fitting multiple models is because of our small data set. These models are all compatible with regression, and vary in complexity and accuracy, with interpretability often being the trade-off. Because almost all of our predictors are binary, we want to use more complex models that may be able to interpret these rather uninformative variables in a way that will lead to higher accuracy. We don't believe a linear regression model could perform this well. By using multiple models we hope to get the best performing machine possible. We hypothesize that win percent has a positive correlation with chocolate content, complexity, and interesting shapes.
+
+
+## Results
+
+```{python}
+#| echo: False
+#| message: False
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score, roc_auc_score
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.compose import make_column_transformer
+from sklearn.model_selection import cross_val_predict, cross_val_score, LeaveOneOut
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.model_selection import GridSearchCV
+```
+
+```{python}
+#| echo: False
+# save features used to predict win percent
+X = candy.drop(['winpercent', 'competitorname'], axis = 1)
+# save outcome var
+y = np.ravel(candy['winpercent'])
+```
+
+```{python}
+#| echo: False
+# column transformer 
+preprocessor = make_column_transformer(
+    (StandardScaler(), [9, 10]), # column indices of sugarpercent and pricepercent
+    remainder='passthrough'
+)
+```
+
+We choose to use Leave-One-Out Cross-Validation (LOOCV) instead of a traditional train-test split method for evaluating machine learning models due to the small size of our data set. With a small data set, a train-test split can result in a small sample size for training the model, leading to overfitting or underfitting depending on the number of observations and features in the data. LOOCV allows us to train the model on almost the entire data set, while still allowing for independent evaluation of the model's performance on each data point. This approach provides a more accurate estimate of the model's performance on new, unseen data, which is especially important when dealing with a small data set. Additionally, LOOCV eliminates the potential bias introduced by a random train-test split and provides a more reliable estimate of the model's generalization performance. Overall, LOOCV is a suitable approach for evaluating machine learning models when dealing with small data sets, as it provides a more accurate and reliable estimate of model performance.
+
+
+### Random Forest
+
+```{python}
+#| echo: False
+
+# Create a pipeline with the preprocessor and random forest regressor
+rf_pipe = Pipeline([
+    ('preprocessor', preprocessor),
+    ('rf', RandomForestRegressor())
+])
+
+# Define the parameter grid for the random forest regressor
+# the grids are non-exhaustive because of how many features we have to optimize and the time constraint of the project
+param_grid_rf = {
+    'rf__n_estimators': [100, 200],
+    'rf__max_depth': [None, 5, 10],
+    'rf__min_samples_split': [2, 5],
+}
+
+# Create a grid search object with the pipeline and parameter grid
+grid_rf = (
+  GridSearchCV(rf_pipe, param_grid_rf, cv=5, n_jobs=1)
+  .fit(X, y)
+)
+
+# save optimal tuning params
+rf_max_depth = grid_rf.best_params_["rf__max_depth"]
+rf_min_samples_split = grid_rf.best_params_["rf__min_samples_split"]
+rf_n_estimators = grid_rf.best_params_["rf__n_estimators"]
+```
+
+
+```{python}
+#| echo: false
+
+# save best model
+rf_optimal = grid_rf.best_estimator_
+
+# Use LeaveOneOut to perform LOO and get the R^2 score for each fold
+loo = LeaveOneOut()
+y_pred_rf = cross_val_predict(rf_optimal, X, y, cv=loo)
+
+# Compute the mean squared error and R^2 score
+rf_mse = mean_squared_error(y, y_pred_rf)
+rf_r2 = r2_score(y, y_pred_rf)
+```
+
+After performing cross-validation to find the best Random Forest Regressor model, an RF with a max depth of `r py$rf_max_depth`, a minimum number of samples required for each internal node for a split of `r py$rf_min_samples_split`, and the number of estimators to be `r py$rf_n_estimators` is the best for predicting candy popularity using the candy data set. The model achieves an MSE of `r round(py$rf_mse, digits=2)` and an $R^2$ score of `r round(py$rf_r2, digits=2)`. The Random Forest Regressor model uses an ensemble of decision trees to make predictions, which can capture nonlinear relationships and interactions between features that may not be captured by a linear model. 
+
+### Decision Tree
+
+```{python}
+#| echo: False
+
+# Define the decision tree regressor
+tree = DecisionTreeRegressor(random_state=42)
+tree_pipe = Pipeline([
+    ('preprocessor', preprocessor),
+    ('dtr', tree)])
+
+# Define the parameter grid to search over
+# the grids are non-exhaustive because of how many features we have to optimize and the time constraint of the project
+param_grid_tree = {
+    'dtr__max_depth': [None, 5, 10],
+    'dtr__min_samples_split': [2, 5, 10],
+    'dtr__min_samples_leaf': [1, 2, 4],
+}
+
+# Create a GridSearchCV object with the pipeline and parameter grid
+grid_tree = (
+  GridSearchCV(tree_pipe, param_grid=param_grid_tree, cv=5, n_jobs=1,
+               scoring = "neg_mean_squared_error")
+  .fit(X, y)
+)
+
+# save optimal tuning params
+tree_max_depth = grid_tree.best_params_["dtr__max_depth"]
+tree_min_samples_split = grid_tree.best_params_["dtr__min_samples_split"]
+tree_samples_leaf = grid_tree.best_params_["dtr__min_samples_leaf"]
+```
+
+```{python}
+#| echo: False
+
+# save best model
+tree_optimal = grid_tree.best_estimator_
+    
+y_pred_tree = cross_val_predict(tree_optimal, X, y, cv=loo)
+
+# Compute the mean squared error and R^2 score of the decision tree model with the best hyperparameters
+tree_mse = mean_squared_error(y, y_pred_tree)
+tree_r2 = r2_score(y, y_pred_tree)
+```
+
+For a Decision Tree Regressor model, it performs best when the max depth is `r py$tree_max_depth`, the minimum of samples needed to split an internal node is  `r py$tree_min_samples_split`, and the minimum number of samples to be considered a leaf is `r py$tree_samples_leaf`. The model achieves an MSE of `r round(py$tree_mse, digits=2)` and an $R^2$ score of `r round(py$tree_r2, digits=2)`, which is lower than the performance of the Random Forest Regressor model on the same data set. The Decision Tree Regressor model is a simpler model than the Random Forest Regressor model and can be useful for interpreting the relationships between features and the target variable. However, in this case, the Random Forest Regressor model performs better.
+
+### Gradient Boosting Regressor
+``` {python}
+#| echo: False
+
+# Define the gradient boosting regressor
+gbm = GradientBoostingRegressor(n_estimators=10, random_state=42)
+
+# Define the pipeline with the preprocessor and the gradient boosting regressor
+gb_pipe = Pipeline([
+    ('preprocessor', preprocessor),
+    ('gbm', gbm)])
+
+# Define the parameter grid
+# the grids are non-exhaustive because of how many features we have to optimize and the time constraint of the project
+param_grid_gbm = {
+    'gbm__learning_rate': [0.01, 0.1, 1],
+    'gbm__n_estimators': [100, 200, 300],
+    'gbm__max_depth': [3, 5, 7],
+    'gbm__min_samples_split': [2, 5, 10],
+    'gbm__min_samples_leaf': [1, 2, 4],
+    'gbm__max_features': [1.0, 'sqrt', 'log2']
+}
+
+# Create a GridSearchCV object with the pipeline and parameter grid
+grid_search_gbm = (
+  GridSearchCV(gb_pipe, param_grid=param_grid_gbm, cv=5)
+  .fit(X, y)
+)
+
+gbm_learning_rate = grid_search_gbm.best_params_["gbm__learning_rate"]
+gbm_n_estimators = grid_search_gbm.best_params_["gbm__n_estimators"]
+gbm_max_depth = grid_search_gbm.best_params_["gbm__max_depth"]
+gbm_min_samples_split = grid_search_gbm.best_params_["gbm__min_samples_split"]
+gbm_min_samples_leaf = grid_search_gbm.best_params_["gbm__min_samples_leaf"]
+gbm_max_features = grid_search_gbm.best_params_["gbm__max_features"]
+```
+
+```{python}
+#| echo: False
+
+# save best model
+gbm_optimal = grid_search_gbm.best_estimator_
+
+# Use the best hyperparameters to train the gradient boosting regressor
+best_params_no_prefix = {key.replace("gbm__", ""): value for key, value in grid_search_gbm.best_params_.items()}
+best_gb = GradientBoostingRegressor(**best_params_no_prefix)
+
+# Use cross_val_predict to perform 10-fold cross-validation and get the predicted y values
+y_pred = cross_val_predict(gbm_optimal, X, y, cv=loo)
+
+# Compute the mean squared error and R^2 score of the gradient boosting model
+gbm_mse = mean_squared_error(y, y_pred)
+gbm_r2 = r2_score(y, y_pred)
+```
+
+The best hyperparameters for the GBM model are to have a learning rate of `r  py$gbm_learning_rate`, a maximum depth of `r py$gbm_max_depth`, the square root of the number of features used to determine the best split, `r py$gbm_min_samples_leaf` samples minimum for each leaf, `r py$gbm_min_samples_split` samples minimum samples for a split of an internal node, and `r py$gbm_n_estimators` estimators. The MSE is relatively high at `r round(py$gbm_mse, digits=2)` and the $R^2$ score is `r round(py$gbm_r2, digits=2)`.
+
+In conclusion, the Random Forest Regressor model can best predict candy popularity using the candy data set. It accounts for about `r round(py$rf_r2 * 100, digits=2)`% of the variation in win percentage of a certain candy. The MSE is still relatively high, with an error of `r round(py$rf_mse, digits=2)` on the entire model. This performs slightly better than the GBM, and much better than only using one decision tree.
+
+```{python}
+#| echo: False
+
+# Fit the Random Forest Regressor model (performed the best) with the preprocessor to the entire data set
+rf_optimal.fit(X, y)
+```
+The Random Forest Regressor model's feature importance analysis shows that chocolate is the most important feature, with a weight of 0.376, followed by colorful and complex attributes with weights of 0.150 and 0.171, respectively. Other important features include fruity, caramel, peanutyalmondy, nougat, and sour. Pricepercent has the lowest feature importance weight, indicating that it has the least impact on candy popularity. These results suggest that a candy's taste and appearance are more important than its price in determining its popularity.
+
+```{python}
+#| echo: False
+
+# Initialize an empty dictionary to store the predicted popularity for each attribute
+popularity_by_attribute = {}
+                  
+# Loop through each attribute in X
+for attribute in X.columns:
+    # Set the current attribute to 1 and all others to 0
+    X_attribute = X.copy()
+    X_attribute.loc[:, :] = 0
+    X_attribute[attribute] = 1
+    
+    # Predict the popularity of the candy with the current attribute
+    popularity_with_attribute = rf_optimal.predict(X_attribute)[0]
+    
+    # Store the predicted popularity in the dictionary
+    popularity_by_attribute[attribute] = popularity_with_attribute
+
+# Print the predicted popularity for each attribute in descending order
+print("Winning Percentage with Only One Attribute:\n")
+for attribute, popularity in sorted(popularity_by_attribute.items(), key=lambda x: x[1], reverse=True):
+    print(f"{attribute}: {popularity:.2f}")
+
+# save chocolate winning percentage
+predicted_choc_winpct = popularity_by_attribute["chocolate"]
+predicted_sugar_winpct = popularity_by_attribute["sugarpercent"]
+predicted_colorful_winpct = popularity_by_attribute["colorful"]
+```
+
+The Random Forest Regressor model was used to predict the popularity of different attributes of candy. The predicted popularity values for each attribute were then sorted in descending order. The attribute with the highest predicted popularity is chocolate with a score of `r round(py$predicted_choc_winpct, digits=2)`, followed by a sugar percentile of 1 (the most sugary) with an expected winning percentage of `r round(py$predicted_sugar_winpct, digits=2)` and colorful with a predicted winning percentage of `r round(py$predicted_colorful_winpct, digits=2)` These results suggest that chocolate and high sugar content are strong predictors of candy popularity. A price percentile of 1 (most expensive) of a candy is predicted to be the least important attribute in predicting candy popularity. These results can be useful for candy manufacturers and marketers to understand which attributes of candy are most likely to be popular among consumers.
+
+### Feature Importances
+```{python}
+#| echo: False
+
+# Extract the feature importances from the Random Forest Regressor model
+feature_importances = rf_optimal['rf'].feature_importances_
+
+# rename columns for formatting
+cols = [s.capitalize() for s in X.columns]
+cols[3] = "Peanuts / Almonds"
+cols[5] = "Cripsy / Rice / Wafer"
+cols[9] = "Sugar Percentile"
+cols[10] = "Price Percentile"
+
+# Create a dataframe to hold the feature importances
+importance_df = pd.DataFrame({'feature': cols, 'importance': feature_importances})
+
+# Sort the features by importance in descending order
+importance_df = importance_df.sort_values(by='importance', ascending=False)
+
+# Plot the feature importances using a horizontal bar chart
+fig, ax = plt.subplots()
+plt.figure(figsize=(6, 6))
+sns.barplot(x='importance', y='feature', data=importance_df)
+plt.title('Feature Importances of the Random Forest Model')
+plt.xlabel('Importance')
+plt.ylabel('Feature')
+plt.tight_layout()
+plt.show()
+plt.clf()
+
+# sort in descending order to reference in narrative
+sorted_fi = np.sort(feature_importances)[::-1]
+```
+
+Based on the Random Forest Regressor model, the most important attribute for predicting candy popularity is `caramel`, followed by `chocolate` and `fruity`. The other attributes may also play a role in candy popularity, but to a lesser extent. The least important attribute is `sour`. It's important to note that these results are specific to the data set and may not generalize to other populations or contexts.
+
+
+## Discussion
+
+After attempting to fit multiple regression prediction models, we found that it is hard for machines to predict how popular a certain candy will be based on their flavor profile, visual and tactile presentation, and price. Out of the decision tree, random forest, and GBM models, the Random Forest Regressor model performed the best, with the highest $R^2$ value of `r round(py$rf_r2, digits=2)` and smallest MSE of `r round(py$rf_mse, digits=2)`. However, this model still only accounts for about a third of the variation in win percentage. We hypothesized that chocolate, complex flavors, and an interesting shape may all positively contribute to predicting a candy's winning percentage. Chocolate is the second most important feature in predicting winning percentage, with a feature importance value of `r round(py$sorted_fi[1], digits=4)`; caramel has the highest feature importance of `r round(py$sorted_fi[0], digits=4)`. Complexity of the candy is the fourth most important, with a feature importance of `r round(py$sorted_fi[3], digits=4)`. Shape does not seem to contribute much, with a feature importance of `r round(py$sorted_fi[11], digits=4)`. Higher values of feature importance indicates the degree to which that predictor contributes to the final model. Feature importance values range from 0 to 1, but none of them having an importance of even 0.4 reflects the limitations of our data and difficulty predicting win percentage from the data set.
+
+To test our model, we defined candies with only one of `r ncol(py$X)` attributes being marked as present. Then, we predicted the winning percentage using our optimal Random Forest Regressor model. The results reveal that chocolate as the only attribute has the highest winning percentage of `r round(py$predicted_choc_winpct, digits=2)`. It's hard to interpret these estimates in context (in regards to the predicted winning percentage with only that attribute present). For example, a candy cannot have an interesting shape with no other of the listed attributes (it would have no flavor). Under a similar interpretation, if a candy has a complex flavor profile but none of the individual flavors, then what does this complex flavor consist of? Our model predicts candies with a price percentile of 1 (most expensive) to have the lowest winning percentage, but this theoretical candy has no flavor or visual attributes.  There is inherent interaction between these variables, which our predictions do not account for.
+
+Because our data set is relatively small, we opted for a LOOCV (leave one out cross-validation) method to find the optimal model. This is a more computationally expensive algorithm but gives us more leverage with our small amount of data. The training data, with its inherent limitation of being rather small, limits the validity of our model. While we did use the LOOCV method to maximize each observation, `r nrow(candy)` observations is still a very small amount to fit a model to. Something else that may limit the predictions for new data we can make is that the categories added to the original data set are mostly arbitrary. Analyst Sarah Kessler hand-picked candies that fit the criteria for each category out of the data set, imparting a not insignificant amount of human error. Perhaps a few different candies could have been categorized as colorful or interesting by a different human analyst, and that could have contributed to different scores in the `colorful` and `shaped` columns. 
+
+If we were able to start over with the project, we probably would try to find a new data set. There are not many observations in this data set, and while we tried sourcing the original, raw data, it proved unsuccessful. Having this raw data may have lead to a much more interesting analysis. If we were able to conduct the same survey as Hickey, we would ask about other demographic information like age, gender, location etc. Perhaps there's a stratified difference depending on who the candy consumer is (ex. children may like colorful, interestingly shaped candy, while adults may be more  about the complexity of the flavor profile). Including factors other than the candy's attributes would also give us a richer data set with variables that aren't binary indicators. Like Hickey, we would probably deploy it online and try to gather a large, randomized sample size. The resulting data would also give us the results of each comparison, rather than the overall percentage of matchups each candy won. So, not only could we predict the absolute win percentage, but perhaps we could predict if a given candy would fall in the top 5 or bottom 5 (a question of classification). Only having `r nrow(candy)` observations is an inherent limitation to building a model and performing predictions. 
+
+
+## Citation
+
+Hickey, W. (2017, October 27). *The ultimate halloween candy power ranking.* FiveThirtyEight. Retrieved April 16, 2023, from https://fivethirtyeight.com/videos/the-ultimate-halloween-candy-power-ranking/ 
